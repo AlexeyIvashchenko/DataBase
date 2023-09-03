@@ -21,32 +21,73 @@ class HHParser:
             "Kaspersky Lab",
             "Avito"
         ]
+
+        vacancies = []
+
         for company in companies:
-            print(f"Вакансии от компании {company}:\n")
-            vacancies = self.get_vacancies(company)
+            company_id = self.get_company_id(company)
+            if company_id:
+                vacancies.extend(self.get_vacancies(company_id))
+        return vacancies
 
-            if vacancies:
-                for vacancy in vacancies:
-                    print(f"Название: {vacancy['name']}")
-                    print(f"Зарплата: {vacancy.get('salary', 'Не указана')}")
-                    print(f"Регион: {vacancy.get('area', {}).get('name', 'Не указан')}")
-                    print(f"Описание: {vacancy.get('description', 'Отсутствует')}")
-                    print(f"Ссылка: {vacancy['url']}\n")
-
-            else:
-                print("Нет доступных вакансий от этой компании.\n")
-
-    def get_vacancies(self, company_name):
+    def get_company_id(self, company_name):
         params = {
-            "text": f'компания:"{company_name}"',  # Поиск вакансий по названию компании
-            "per_page": 10  # Количество вакансий для отображения
+            "text": f'компания:"{company_name}"',
+            "per_page": 1
+        }
+        response = requests.get(self.base_url, params=params)
+        if response.status_code == 200:
+            vacancies = response.json()
+            if vacancies and 'items' in vacancies and vacancies['items']:
+                return vacancies['items'][0]['employer']['id']
+            else:
+                return None
+        return None
+
+    def get_vacancies(self, company_id):
+        params = {
+            "employer_id": company_id,
+            "per_page": 10
         }
 
         response = requests.get(self.base_url, params=params)
 
         if response.status_code == 200:
-            vacancies = response.json()
-            return vacancies
+            vacancies = response.json().get('items', [])
+            formatted_vacancies = []
+
+            for vacancy in vacancies:
+                title = vacancy.get('name', 'Unknown Title')
+                description = vacancy.get('description', '')
+                region = vacancy.get('area', {}).get('name', 'Region Not Specified')
+                url = vacancy.get('url')
+
+                salary_info = vacancy.get('salary', {})
+                salary_from = salary_info.get('from')
+                salary_to = salary_info.get('to')
+
+                # Проверяем данные о зарплате и преобразуем их в числовой формат
+                if isinstance(salary_from, (int, float)) and isinstance(salary_to, (int, float)):
+                    # Если оба значения доступны, берем среднее
+                    salary = (salary_from + salary_to) / 2
+                elif isinstance(salary_from, (int, float)):
+                    # Если есть только одно значение
+                    salary = salary_from
+                elif isinstance(salary_to, (int, float)):
+                    # Если есть только одно значение
+                    salary = salary_to
+                else:
+                    # Если данных о зарплате нет или они некорректны
+                    salary = None
+
+                formatted_vacancies.append({
+                    'title': title,
+                    'description': description,
+                    'region': region,
+                    'url': url,
+                    'salary': salary
+                })
+
+            return formatted_vacancies
         else:
-            print(f"Не удалось получить данные о вакансиях от компании {company_name}.")
             return []
