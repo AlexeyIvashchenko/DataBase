@@ -182,7 +182,7 @@ class DBManager:
             except ValueError:
                 continue
 
-            # Сравниваем зарплату с средней
+            # Сравниваем зарплату со средней
             if salary > avg_salary:
                 valid_salary_vacancies.append((employer_name, vacancy_title, salary, url))
 
